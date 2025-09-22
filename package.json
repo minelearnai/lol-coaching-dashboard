@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@fightmegg/riot-rate-limiter": "^1.1.0",
+    "@fightmegg/riot-rate-limiter": "^0.0.23",
     "@notionhq/client": "^5.1.0",
     "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.6.0",
