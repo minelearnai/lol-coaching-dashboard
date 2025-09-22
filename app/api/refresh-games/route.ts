@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { Game } from '@/lib/types';
 
 const RIOT_API_BASE = 'https://eun1.api.riotgames.com';
-const NOTION_API_BASE = 'https://api.notion.com/v1';
+const RIOT_ACCOUNT_BASE = 'https://europe.api.riotgames.com';
+const NOTION_API_BASE = 'https://api.notion.com/v1'; // ✅ ADDED MISSING CONSTANT
 
 interface RiotMatch {
   metadata: {
@@ -15,10 +16,13 @@ interface RiotMatch {
   };
 }
 
+// ✅ UPDATED with correct property names from Riot API
 interface RiotParticipant {
   puuid: string;
   summonerName: string;
   championName: string;
+  teamPosition: string;        // ✅ ADDED
+  individualPosition: string;  // ✅ ADDED
   role: string;
   lane: string;
   win: boolean;
@@ -39,41 +43,47 @@ interface NotionGame {
 // Helper function to fetch recent games from Riot API
 async function fetchRiotRecentGames(): Promise<NotionGame[]> {
   const riotApiKey = process.env.RIOT_API_KEY;
-  const summonerName = 'Feraxin'; // Your summoner name
+  const gameName = 'Feraxin';
+  const tagLine = 'EUNE';
   
   if (!riotApiKey) {
     throw new Error('RIOT_API_KEY not found in environment variables');
   }
 
   try {
-    // Step 1: Get PUUID by summoner name
-    const summonerResponse = await fetch(
-      `${RIOT_API_BASE}/lol/summoner/v4/summoners/by-name/${summonerName}?api_key=${riotApiKey}`
+    // ✅ STEP 1: Get PUUID using NEW Riot ID endpoint
+    console.log(`🔍 Getting PUUID for ${gameName}#${tagLine}...`);
+    const accountResponse = await fetch(
+      `${RIOT_ACCOUNT_BASE}/riot/account/v1/accounts/by-riot-id/${gameName}/${tagLine}?api_key=${riotApiKey}`
     );
     
-    if (!summonerResponse.ok) {
-      throw new Error(`Summoner API error: ${summonerResponse.status}`);
+    if (!accountResponse.ok) {
+      throw new Error(`Account API error: ${accountResponse.status} - ${await accountResponse.text()}`);
     }
     
-    const summonerData = await summonerResponse.json();
-    const puuid = summonerData.puuid;
+    const accountData = await accountResponse.json();
+    const puuid = accountData.puuid;
+    console.log(`✅ Found PUUID: ${puuid.substring(0, 10)}...`);
 
-    // Step 2: Get recent match IDs
+    // ✅ STEP 2: Get recent match IDs
     const matchListResponse = await fetch(
       `${RIOT_API_BASE}/lol/match/v5/matches/by-puuid/${puuid}/ids?queue=420&type=ranked&start=0&count=10&api_key=${riotApiKey}`
     );
     
     if (!matchListResponse.ok) {
-      throw new Error(`Match list API error: ${matchListResponse.status}`);
+      throw new Error(`Match list API error: ${matchListResponse.status} - ${await matchListResponse.text()}`);
     }
     
     const matchIds: string[] = await matchListResponse.json();
+    console.log(`✅ Found ${matchIds.length} recent matches`);
 
-    // Step 3: Get match details for each match
+    // ✅ STEP 3: Process each match
     const games: NotionGame[] = [];
     
     for (const matchId of matchIds) {
       try {
+        console.log(`🔍 Processing match: ${matchId}`);
+        
         const matchResponse = await fetch(
           `${RIOT_API_BASE}/lol/match/v5/matches/${matchId}?api_key=${riotApiKey}`
         );
@@ -85,7 +95,7 @@ async function fetchRiotRecentGames(): Promise<NotionGame[]> {
         
         const matchData: RiotMatch = await matchResponse.json();
         
-        // Find the player's participant data
+        // Find player's participant data
         const participant = matchData.info.participants.find(
           (p: RiotParticipant) => p.puuid === puuid
         );
@@ -95,8 +105,14 @@ async function fetchRiotRecentGames(): Promise<NotionGame[]> {
           continue;
         }
 
-        // Only include jungle games
-        if (participant.role !== 'JUNGLE' && participant.lane !== 'JUNGLE') {
+        // ✅ FIXED: Proper jungle detection with correct property names
+        const isJungle = participant.teamPosition === 'JUNGLE' || 
+                        participant.individualPosition === 'JUNGLE' ||
+                        (participant.role === 'NONE' && participant.lane === 'JUNGLE') ||
+                        participant.lane === 'JUNGLE';
+
+        if (!isJungle) {
+          console.log(`Skipping non-jungle game: ${participant.teamPosition || participant.role}/${participant.lane}`);
           continue;
         }
 
@@ -111,9 +127,10 @@ async function fetchRiotRecentGames(): Promise<NotionGame[]> {
         };
 
         games.push(game);
+        console.log(`✅ Added jungle game: ${game.champion} ${game.kda} ${game.result}`);
 
-        // Rate limiting - wait between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 120));
 
       } catch (error) {
         console.error(`Error processing match ${matchId}:`, error);
@@ -121,10 +138,11 @@ async function fetchRiotRecentGames(): Promise<NotionGame[]> {
       }
     }
 
+    console.log(`🎯 Final result: ${games.length} jungle games found`);
     return games;
 
   } catch (error) {
-    console.error('Error fetching Riot games:', error);
+    console.error('❌ Error fetching Riot games:', error);
     throw error;
   }
 }
@@ -329,6 +347,7 @@ export async function GET() {
   return Response.json({
     message: 'Riot API Game Refresh Endpoint',
     usage: 'POST to this endpoint to fetch new games from Riot API and sync to Notion',
-    requirements: ['RIOT_API_KEY', 'NOTION_TOKEN', 'NOTION_GAMES_DB']
+    requirements: ['RIOT_API_KEY', 'NOTION_TOKEN', 'NOTION_GAMES_DB'],
+    version: '2.0 - Fixed with Riot ID migration'
   });
 }
