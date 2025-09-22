@@ -1,37 +1,14 @@
 import { KPICard } from '@/app/components/KPICard';
 import { GameTimeline } from '@/app/components/GameTimeline';
+import { getRecentGames, getCurrentSession } from '@/lib/notion';
 import { Game } from '@/lib/types';
 
-export default function Dashboard() {
-  // Mock data based on your real recent games
-  const games: Game[] = [
-    {
-      id: '1',
-      champion: 'Kindred',
-      result: 'WIN',
-      deaths: 5,
-      kda: '9/5/10',
-      game_date: '2025-09-22T04:10:00'
-    },
-    {
-      id: '2',
-      champion: 'Karthus',
-      result: 'LOSS',
-      deaths: 17,
-      kda: '9/17/2',
-      game_date: '2025-09-22T03:28:00'
-    },
-    {
-      id: '3',
-      champion: 'Briar',
-      result: 'WIN',
-      deaths: 3,
-      kda: '7/3/15',
-      game_date: '2025-09-22T02:48:00'
-    }
-  ];
-
-  // Calculate KPIs
+export default async function Dashboard() {
+  // 🔥 REAL DATA FROM NOTION - AUTO-UPDATING!
+  const games = await getRecentGames(20);
+  const session = await getCurrentSession();
+  
+  // Calculate KPIs from REAL data
   const recentGames = games.slice(0, 10);
   const winrate = games.filter((g: Game) => g.result === 'WIN').length / games.length * 100;
   const avgDeaths = games.reduce((sum: number, g: Game) => sum + g.deaths, 0) / games.length;
@@ -45,14 +22,17 @@ export default function Dashboard() {
             🎮 LoL Jungle Coach Dashboard
           </h1>
           <p className="text-gray-600">Feraxin#EUNE • Platinum 2</p>
+          <p className="text-sm text-gray-500">
+            Last updated: {new Date().toLocaleString()}
+          </p>
         </div>
       </header>
       
       <main className="max-w-7xl mx-auto py-6 px-4">
-        {/* KPIs Row */}
+        {/* Real-time KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <KPICard 
-            title="Winrate (Recent)"
+            title="Winrate (Last 20)"
             value={Math.round(winrate)}
             change={5.2}
             target={60}
@@ -73,18 +53,18 @@ export default function Dashboard() {
             format="percentage"
           />
           <KPICard 
-            title="Current Streak"
-            value="2W"
-            change={2}
+            title="Games Analyzed"
+            value={games.length}
+            change={games.length}
           />
         </div>
         
-        {/* Main Content */}
+        {/* Main Content with REAL data */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <GameTimeline games={recentGames} />
           
           <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium mb-4">🎯 Current Task Progress</h3>
+            <h3 className="text-lg font-medium mb-4">🎯 Live Progress Tracking</h3>
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm">
@@ -93,43 +73,68 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
                   <div 
-                    className="bg-blue-600 h-2 rounded-full" 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
                     style={{width: `${protocolCompliance}%`}} 
                   />
                 </div>
               </div>
               
+              {/* Dynamic recommendations based on real data */}
               {protocolCompliance >= 80 ? (
                 <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <h4 className="font-medium text-green-900">🎉 Excellent Progress!</h4>
+                  <h4 className="font-medium text-green-900">🎉 Protocol Mastered!</h4>
                   <p className="text-sm text-green-700">
-                    You're maintaining excellent death control. Keep it up!
+                    Excellent death control! Ready for advanced objectives training.
                   </p>
                 </div>
               ) : protocolCompliance >= 60 ? (
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-medium text-blue-900">✅ Good Progress</h4>
+                  <h4 className="font-medium text-blue-900">✅ Strong Progress</h4>
                   <p className="text-sm text-blue-700">
-                    You're improving! Focus on Kindred for consistent results.
+                    Keep focusing on Kindred. {games.filter(g => g.champion === 'Kindred').length} Kindred games detected.
                   </p>
                 </div>
               ) : (
                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                  <h4 className="font-medium text-red-900">⚠️ Protocol Violation</h4>
+                  <h4 className="font-medium text-red-900">⚠️ Protocol Needs Work</h4>
                   <p className="text-sm text-red-700">
-                    Avoid experimental picks like Karthus. Stick to Kindred/Briar!
+                    {games.filter(g => g.deaths > 10).length} games with 10+ deaths detected. 
+                    Avoid experimental picks!
                   </p>
                 </div>
               )}
               
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-900">📚 Latest Analysis</h4>
-                <p className="text-sm text-gray-600">
-                  Based on your recent 3 games: Strong performance on comfort picks, 
-                  but experimental champions lead to excessive deaths.
-                </p>
-              </div>
+              {session && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-900">📚 Current Session</h4>
+                  <p className="text-sm text-gray-600">
+                    {session.name} • {session.focus_area} • 
+                    Target: {session.target_games} games
+                  </p>
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+        
+        {/* Live Champion Analytics */}
+        <div className="mt-8 bg-white shadow rounded-lg p-6">
+          <h3 className="text-lg font-medium mb-4">🏆 Champion Performance (Live Data)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {['Kindred', 'Briar', 'Karthus', 'Nocturne'].map(champ => {
+              const champGames = games.filter(g => g.champion === champ);
+              const champWins = champGames.filter(g => g.result === 'WIN').length;
+              const champWR = champGames.length > 0 ? (champWins / champGames.length * 100) : 0;
+              
+              return (
+                <div key={champ} className="p-3 bg-gray-50 rounded">
+                  <p className="font-medium">{champ}</p>
+                  <p className="text-sm text-gray-600">
+                    {champGames.length} games • {Math.round(champWR)}% WR
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </main>
