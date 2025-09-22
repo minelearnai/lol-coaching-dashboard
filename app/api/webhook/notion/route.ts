@@ -103,14 +103,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, type: body.type });
     
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+  
     console.error('❌ Webhook processing error:', error);
-    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error stack:', errorStack);
+  
     return NextResponse.json({ 
       error: 'Webhook processing failed',
-      details: error.message
+      details: errorMessage
     }, { status: 500 });
   }
-}
+} // ← DODANY BRAKUJĄCY NAWIAS KLAMROWY!
 
 export async function GET() {
   return NextResponse.json({ 

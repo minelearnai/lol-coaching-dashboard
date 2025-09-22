@@ -1,3 +1,5 @@
+import { NextRequest, NextResponse } from 'next/server';
+
 export async function POST(request: NextRequest) {
   const gameData = await request.json();
   const deaths = gameData.deaths;

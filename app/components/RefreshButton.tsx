@@ -9,7 +9,11 @@ export function RefreshButton() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    
+    // Trigger server-side refresh
+    await fetch('/api/revalidate', { method: 'POST' });
     router.refresh();
+    
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
@@ -17,9 +21,10 @@ export function RefreshButton() {
     <button
       onClick={handleRefresh}
       disabled={isRefreshing}
-      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
     >
-      {isRefreshing ? '🔄 Refreshing...' : '🔄 Refresh Data'}
+      {isRefreshing ? '🔄' : '↻'} 
+      {isRefreshing ? 'Updating...' : 'Refresh Data'}
     </button>
   );
 }
