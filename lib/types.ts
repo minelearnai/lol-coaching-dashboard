@@ -1,11 +1,10 @@
-// lib/types.ts
 export interface Game {
   id: string;
   champion: string;
   result: 'WIN' | 'LOSS';
   deaths: number;
   kda: string;
-  game_date: string; // ✅ Consistent property name
+  game_date: string;
 }
 
 export interface Session {

@@ -1,10 +1,9 @@
-// components/GameTimeline.tsx
-import { Game } from '@/lib/types'; // ✅ Import shared type
+import { Game } from '@/lib/types';
 
 export function GameTimeline({ games }: { games: Game[] }) {
   return (
     <div className="bg-white shadow rounded-lg p-6">
-      <h3 className="text-lg font-medium mb-4">Recent Games</h3>
+      <h3 className="text-lg font-medium mb-4">🎮 Recent Games</h3>
       <div className="space-y-3">
         {games.map((game) => (
           <div key={game.id} className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50">
@@ -15,7 +14,12 @@ export function GameTimeline({ games }: { games: Game[] }) {
             <div className="flex-1">
               <p className="text-sm font-medium">{game.champion}</p>
               <p className="text-xs text-gray-500">
-                {new Date(game.game_date).toLocaleDateString()} {/* ✅ Use game_date */}
+                {new Date(game.game_date).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
               </p>
             </div>
             
