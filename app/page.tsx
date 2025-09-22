@@ -2,14 +2,13 @@ import { KPICard } from '@/app/components/KPICard';
 import { GameTimeline } from '@/app/components/GameTimeline';
 import { RefreshButton } from '@/app/components/RefreshButton';
 import { getRecentGames, getCurrentSession } from '@/lib/notion';
-import { Game } from '@/lib/types';
+import { Game, Session } from '@/lib/types';  // ✅ Import Session type
 
-// Force server-side rendering for fresh data
 export const revalidate = 0;
 
 export default async function Dashboard() {
   let games: Game[] = [];
-  let session = null;
+  let session: Session | null = null;  // ✅ Proper type declaration
   let error = null;
 
   try {
@@ -137,13 +136,14 @@ export default async function Dashboard() {
               </div>
               
               {session && (
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900">📚 Active Session</h4>
-                  <p className="text-sm text-blue-700">
-                    {session.name} • {session.focus_area} • Target: {session.target_games} games
-                  </p>
-                </div>
-              )}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                   <h4 className="font-medium text-gray-900">📚 Current Session</h4>
+                    <p className="text-sm text-gray-600">
+                    {session.name} • {session.focus_area} • 
+                    Target: {session.target_games} games
+                   </p>
+                 </div>
+  )}
               
               <div className="p-4 bg-green-50 rounded-lg">
                 <h4 className="font-medium text-green-900">✅ API Status</h4>

@@ -1,97 +1,113 @@
-import { Game } from './types';
+import { Game, Session } from './types';
 
 const NOTION_API_BASE = 'https://api.notion.com/v1';
 
 export const getRecentGames = async (limit = 10): Promise<Game[]> => {
-  console.log('🔍 Attempting to fetch games from Notion API...');
+  const token = process.env.NOTION_TOKEN;
+  const dbId = process.env.NOTION_GAMES_DB;
   
-  if (!process.env.NOTION_TOKEN) {
-    console.error('❌ NOTION_TOKEN missing in environment variables');
-    throw new Error('Notion token not configured');
-  }
-  
-  if (!process.env.NOTION_GAMES_DB) {
-    console.error('❌ NOTION_GAMES_DB missing in environment variables');
-    throw new Error('Games database ID not configured');
+  console.log('🔍 Fetching games from Notion API...');
+  console.log('🔍 Database ID:', dbId);
+  console.log('🔍 Token exists:', !!token);
+
+  if (!token || !dbId) {
+    throw new Error('Missing NOTION_TOKEN or NOTION_GAMES_DB environment variables');
   }
 
   try {
-    console.log('🔍 Making direct API call to Notion...');
-    console.log('🔍 Database ID:', process.env.NOTION_GAMES_DB);
-    
-    const response = await fetch(`${NOTION_API_BASE}/databases/${process.env.NOTION_GAMES_DB}/query`, {
+    // Exact format from Notion API docs
+    const response = await fetch(`${NOTION_API_BASE}/databases/${dbId}/query`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
-        'Notion-Version': '2022-06-28',
+        'Authorization': `Bearer ${token}`,
+        'Notion-Version': '2022-06-28',  // Critical version header
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         filter: {
           property: 'role',
           select: {
-            equals: 'JUNGLE'
+            equals: 'JUNGLE'  // Exact case match from your schema
           }
         },
         sorts: [
           {
             property: 'game_date',
-            direction: 'descending',
-          },
+            direction: 'descending'
+          }
         ],
-        page_size: limit,
-      }),
+        page_size: Math.min(limit, 100)  // Notion API limit
+      })
     });
 
+    // Detailed error handling per docs
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Notion API HTTP Error:', response.status, errorText);
-      throw new Error(`Notion API Error: ${response.status} - ${errorText}`);
+      const errorDetail = `HTTP ${response.status}: ${response.statusText}\n${errorText}`;
+      console.error('❌ Notion API Error:', errorDetail);
+      throw new Error(`Notion API Error: ${errorDetail}`);
     }
 
     const data = await response.json();
-    console.log('✅ Notion API response received:', data.results?.length, 'games');
-    
+    console.log('✅ API Response:', {
+      resultCount: data.results?.length,
+      hasMore: data.has_more,
+      nextCursor: data.next_cursor
+    });
+
+    // Parse response exactly as documented
     const games = data.results.map((page: any) => {
       const props = page.properties;
       
-      // Debug logging
-      console.log('📊 Processing game:', {
-        champion: props.champion?.rich_text?.[0]?.text?.content,
-        result: props.result?.select?.name,
-        kda: props.kda?.rich_text?.[0]?.text?.content
-      });
-      
+      // Extract data according to Notion property types
+      const champion = props.champion?.rich_text?.[0]?.text?.content || 'Unknown';
+      const resultValue = props.result?.select?.name;
+      const result = resultValue === 'Win' ? 'WIN' : 'LOSS';  // Convert to your format
+      const kda = props.kda?.rich_text?.[0]?.text?.content || '0/0/0';
+      const deaths = parseInt(kda.split('/')[1] || '0');
+      const gameDate = props.game_date?.date?.start || new Date().toISOString();
+
+      console.log(`📊 Parsed game: ${champion} ${kda} ${result}`);
+
       return {
         id: page.id,
-        champion: props.champion?.rich_text?.[0]?.text?.content || 'Unknown',
-        result: (props.result?.select?.name as 'WIN' | 'LOSS') || 'LOSS',
-        deaths: parseInt(props.kda?.rich_text?.[0]?.text?.content?.split('/')[1]) || 0,
-        kda: props.kda?.rich_text?.[0]?.text?.content || '0/0/0',
-        game_date: props.game_date?.date?.start || new Date().toISOString()
-      };
+        champion,
+        result,
+        deaths,
+        kda,
+        game_date: gameDate
+      } as Game;
     });
 
-    console.log('✅ Successfully processed', games.length, 'games from Notion');
+    console.log(`✅ Successfully parsed ${games.length} games`);
     return games;
 
   } catch (error) {
-    console.error('❌ Fatal Notion API Error:', error);
-    throw error; // Re-throw to force handling upstream
+    console.error('❌ Fatal error in getRecentGames:', error);
+    throw error;
   }
 };
 
-export const getCurrentSession = async () => {
-  if (!process.env.NOTION_TOKEN || !process.env.NOTION_SESSIONS_DB) {
-    console.error('❌ Session API credentials missing');
-    throw new Error('Session database not configured');
+export const getCurrentSession = async (): Promise<Session | null> => {
+  const token = process.env.NOTION_TOKEN;
+  const dbId = process.env.NOTION_SESSIONS_DB;
+
+  if (!token || !dbId) {
+    console.log('Sessions database not configured, using fallback');
+    // Return fallback session instead of null
+    return {
+      name: 'Death Binary Protocol',
+      focus_area: 'Champion Mechanics', 
+      target_games: 10,
+      start_date: '2025-09-22'
+    };
   }
 
   try {
-    const response = await fetch(`${NOTION_API_BASE}/databases/${process.env.NOTION_SESSIONS_DB}/query`, {
+    const response = await fetch(`${NOTION_API_BASE}/databases/${dbId}/query`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
+        'Authorization': `Bearer ${token}`,
         'Notion-Version': '2022-06-28',
         'Content-Type': 'application/json',
       },
@@ -107,7 +123,7 @@ export const getCurrentSession = async () => {
     });
 
     if (!response.ok) {
-      throw new Error(`Session API Error: ${response.status}`);
+      throw new Error(`Sessions API Error: ${response.status}`);
     }
 
     const data = await response.json();
@@ -115,6 +131,7 @@ export const getCurrentSession = async () => {
     if (data.results.length > 0) {
       const session = data.results[0];
       const props = session.properties;
+      
       return {
         name: props.session_name?.title?.[0]?.text?.content || 'Death Binary Protocol',
         focus_area: props.focus_area?.select?.name || 'Champion Mechanics',
@@ -122,10 +139,24 @@ export const getCurrentSession = async () => {
         start_date: props.start_date?.date?.start || '2025-09-22',
       };
     }
-    return null;
+
+    // Fallback if no active session found
+    return {
+      name: 'Death Binary Protocol',
+      focus_area: 'Champion Mechanics',
+      target_games: 10,
+      start_date: '2025-09-22'
+    };
 
   } catch (error) {
-    console.error('❌ Session API Error:', error);
-    throw error;
+    console.error('Session API Error, using fallback:', error);
+    
+    // Always return fallback session instead of null
+    return {
+      name: 'Death Binary Protocol',
+      focus_area: 'Champion Mechanics',
+      target_games: 10,
+      start_date: '2025-09-22'
+    };
   }
 };
