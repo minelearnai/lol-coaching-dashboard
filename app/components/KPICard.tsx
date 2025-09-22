@@ -1,30 +1,38 @@
 interface KPICardProps {
   title: string;
-  value: string | number;
-  change: number;
-  target?: number;
-  format?: 'percentage' | 'number' | 'decimal';
+  value: string;
+  subtitle: string;
+  trend: string;
+  color: 'green' | 'yellow' | 'red' | 'blue';
+  advanced?: boolean;
 }
 
-export function KPICard({ title, value, change, target, format }: KPICardProps) {
-  const isGood = change > 0;
-  const isOnTarget = target ? (typeof value === 'number' ? value >= target : false) : true;
-  
+export function KPICard({ title, value, subtitle, trend, color, advanced }: KPICardProps) {
+  const colorClasses = {
+    green: 'text-green-400',
+    yellow: 'text-yellow-400', 
+    red: 'text-red-400',
+    blue: 'text-blue-400'
+  };
+
   return (
-    <div className={`p-6 rounded-lg shadow-lg ${isOnTarget ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
-      <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-      <div className="mt-2 flex items-baseline">
-        <p className="text-2xl font-semibold text-gray-900">
-          {format === 'percentage' ? `${value}%` : 
-           format === 'decimal' ? Number(value).toFixed(1) : value}
-        </p>
-        <span className={`ml-2 text-sm ${isGood ? 'text-green-600' : 'text-red-600'}`}>
-          {change > 0 ? '↗' : '↘'} {Math.abs(change)}
-        </span>
-      </div>
-      {target && (
-        <p className="mt-1 text-xs text-gray-500">Target: {target}</p>
+    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/50 hover:border-slate-600/50 transition-all relative">
+      {advanced && (
+        <div className="absolute top-2 right-2">
+          <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded">AI</span>
+        </div>
       )}
+      
+      <div className="text-center">
+        <div className={`text-2xl font-bold mb-1 ${colorClasses[color]}`}>
+          {value}
+        </div>
+        <div className="text-xs text-slate-400 mb-1">{title}</div>
+        <div className="text-xs text-slate-500 mb-2">{subtitle}</div>
+        <div className={`text-xs ${colorClasses[color]}`}>
+          {trend}
+        </div>
+      </div>
     </div>
   );
 }
