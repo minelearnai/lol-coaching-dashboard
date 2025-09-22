@@ -1,7 +1,8 @@
-import RiotRateLimiter, { STRATEGY } from 'riot-ratelimiter';
+import { RiotRateLimiter, STRATEGY } from '@fightmegg/riot-rate-limiter';
 import { RIOT_CONFIG, REGIONAL_ENDPOINTS, getRegionalEndpoint, CACHE_DURATIONS } from './config';
 import { cache } from './cache';
 import { MatchData, SummonerData, AccountData, RiotConfig } from './types';
+import axios, { AxiosRequestConfig } from 'axios';
 
 /**
  * Professional Riot API Client inspired by LeagueStats
@@ -16,9 +17,7 @@ export class RiotClient {
     
     // Initialize rate limiter with spread strategy
     this.limiter = new RiotRateLimiter({
-      debug: process.env.NODE_ENV === 'development',
       strategy: STRATEGY.SPREAD,
-      retryCount: this.config.requestOptions.retriesBeforeAbort,
     });
 
     console.log('✅ RiotClient initialized with rate limiting');
@@ -38,14 +37,18 @@ export class RiotClient {
 
       console.log(`🚀 API Request: ${url}`);
 
-      // Make rate-limited request
-      const response = await this.limiter.executing({
+      // Make rate-limited request using axios
+      const axiosConfig: AxiosRequestConfig = {
+        method: 'GET',
         url,
-        token: this.config.apiKey,
-        resolveWithFullResponse: false,
-      });
+        headers: {
+          'X-Riot-Token': this.config.apiKey,
+        },
+        timeout: 10000, // 10 second timeout
+      };
 
-      const data = JSON.parse(response);
+      const response = await this.limiter.executing(axiosConfig);
+      const data = response.data;
       
       // Cache successful response
       await cache.set(cacheKey, data, cacheDuration);
@@ -53,19 +56,19 @@ export class RiotClient {
       return data;
     } catch (error: any) {
       // Handle different error types
-      if (error.statusCode === 404) {
+      if (error.response?.status === 404) {
         console.log(`⚠️ 404 Not Found: ${url}`);
         return null;
       }
       
-      if (error.statusCode === 429) {
+      if (error.response?.status === 429) {
         console.log('⏱️ Rate limited, waiting...');
         throw new Error('Rate limit exceeded');
       }
 
-      if (error.statusCode >= 500) {
-        console.error(`❌ Server error ${error.statusCode}: ${url}`);
-        throw new Error(`Riot API server error: ${error.statusCode}`);
+      if (error.response?.status >= 500) {
+        console.error(`❌ Server error ${error.response.status}: ${url}`);
+        throw new Error(`Riot API server error: ${error.response.status}`);
       }
 
       console.error('❌ API Request failed:', error);
