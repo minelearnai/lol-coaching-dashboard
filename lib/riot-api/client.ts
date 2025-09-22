@@ -1,4 +1,4 @@
-import { RiotRateLimiter, STRATEGY } from '@fightmegg/riot-rate-limiter';
+import { RiotRateLimiter } from '@fightmegg/riot-rate-limiter';
 import { RIOT_CONFIG, REGIONAL_ENDPOINTS, getRegionalEndpoint, CACHE_DURATIONS } from './config';
 import { cache } from './cache';
 import { MatchData, SummonerData, AccountData, RiotConfig } from './types';
@@ -15,11 +15,11 @@ export class RiotClient {
   constructor(config: RiotConfig = RIOT_CONFIG) {
     this.config = config;
     
-    // Initialize rate limiter with spread strategy
+    // Initialize rate limiter with proper configuration
     this.limiter = new RiotRateLimiter({
-      strategy: STRATEGY.SPREAD,
+      debug: false,
+      concurrency: 1,
     });
-
     console.log('✅ RiotClient initialized with rate limiting');
   }
 
@@ -36,7 +36,7 @@ export class RiotClient {
       }
 
       console.log(`🚀 API Request: ${url}`);
-
+      
       // Make rate-limited request using axios
       const axiosConfig: AxiosRequestConfig = {
         method: 'GET',
