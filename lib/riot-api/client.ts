@@ -26,55 +26,61 @@ export class RiotClient {
   /**
    * Make authenticated request with caching and rate limiting
    */
-  private async makeRequest<T>(url: string, cacheKey: string, cacheDuration: number): Promise<T | null> {
-    try {
-      // Check cache first
-      const cached = await cache.get(cacheKey);
-      if (cached) {
-        console.log(`💾 Cache hit: ${cacheKey}`);
-        return cached;
-      }
+private async makeRequest<T>(url: string, cacheKey: string, cacheDuration: number): Promise<T | null> {
+  try {
+    // Check cache first
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      console.log(`💾 Cache hit: ${cacheKey}`);
+      return cached;
+    }
 
-      console.log(`🚀 API Request: ${url}`);
-      
-      // Make rate-limited request using axios
-      const axiosConfig: AxiosRequestConfig = {
+    console.log(`🚀 API Request: ${url}`);
+    
+    // Make rate-limited request using correct execute method
+    const response = await this.limiter.execute({
+      url: url,
+      options: {
         method: 'GET',
-        url,
         headers: {
           'X-Riot-Token': this.config.apiKey,
         },
-        timeout: 10000, // 10 second timeout
-      };
-
-      const response = await this.limiter.executing(axiosConfig);
-      const data = response.data;
-      
-      // Cache successful response
-      await cache.set(cacheKey, data, cacheDuration);
-      
-      return data;
-    } catch (error: any) {
-      // Handle different error types
-      if (error.response?.status === 404) {
-        console.log(`⚠️ 404 Not Found: ${url}`);
-        return null;
+        timeout: 10000,
       }
-      
-      if (error.response?.status === 429) {
-        console.log('⏱️ Rate limited, waiting...');
-        throw new Error('Rate limit exceeded');
-      }
+    });
 
-      if (error.response?.status >= 500) {
-        console.error(`❌ Server error ${error.response.status}: ${url}`);
-        throw new Error(`Riot API server error: ${error.response.status}`);
-      }
-
-      console.error('❌ API Request failed:', error);
-      throw error;
+    const data = response.data || response; // Handle different response formats
+    
+    // Cache successful response
+    await cache.set(cacheKey, data, cacheDuration);
+    
+    return data;
+  } catch (error: any) {
+    // Handle different error types
+    if (error.response?.status === 404) {
+      console.log(`⚠️ 404 Not Found: ${url}`);
+      return null;
     }
+    
+    if (error.response?.status === 429) {
+      console.log('⏱️ Rate limited, waiting...');
+      throw new Error('Rate limit exceeded');
+    }
+
+    if (error.response?.status >= 500) {
+      console.error(`❌ Server error ${error.response.status}: ${url}`);
+      throw new Error(`Riot API server error: ${error.response.status}`);
+    }
+
+    if (error.response?.status === 403) {
+      console.error('❌ 403 Forbidden - Check your API key');
+      throw new Error('Invalid or missing API key');
+    }
+
+    console.error('❌ API Request failed:', error);
+    throw error;
   }
+}
 
   /**
    * Get summoner by PUUID
